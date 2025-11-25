@@ -411,7 +411,7 @@ class TemporalAnnotator:
             t2 = self.frames[frame_pointer].stamp
             # print(distance)
             # print((t2 - t1).to_sec())
-            if arc_length > self.lookahead or float((t2 - t1).to_sec()) > self.max_duration:
+            if arc_length > self.lookahead:
                 break
             elif arc_length > (keypoint_count+1)*self.keypoint_res:
                 keypoint_count+=1
