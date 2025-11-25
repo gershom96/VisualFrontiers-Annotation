@@ -500,7 +500,7 @@ class TemporalAnnotator:
         try:
             while 0 <= i < len(self.frames):
                 fr = self.frames[i]
-                self.frame_idx = fr.idx
+                self.frame_idx = i
                 self.frame_stamp = fr.stamp
                 self.current_img = fr.img
                 self.reset()
