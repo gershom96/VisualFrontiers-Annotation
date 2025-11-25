@@ -25,6 +25,9 @@ from vis_utils import camray_to_ground_in_base, transform_points, load_calibrati
 from traj_utils import solve_arc_from_point, arc_to_traj, make_offset_paths, create_yaws_from_path, \
     make_offset_path_to_point
 from utils import get_topics_from_bag
+from preference_annotate import TemporalAnnotator as BaseTemporalAnnotator
+from preference_annotate import FrameItem
+from preference_annotate import PathItem
 
 # Colors (BGR)
 COLOR_PATH_ONE = (0, 0, 255)    # RED
@@ -337,7 +340,7 @@ class TemporalAnnotator:
     def compute_comparison_paths(self):
 
         offset = np.random.uniform(self.robot_width/2, self.max_deviation)
-        if self.cum_dists[-1] == 0 or self.path is None or self.path.shape[0] < 2:
+        if self.cum_dists[-1] == 0:
             return np.array([[0, 0, 0]]), np.array([[0, 0, 0]]), np.array([[0, 0, 0]]), np.array([[0, 0, 0]])
 
         offset_ratios = self.cum_dists / self.cum_dists[-1]
