@@ -69,7 +69,7 @@ class TemporalAnnotator:
         fx, fy, cx, cy = 640.0, 637.0, 640.0, 360.0
 
         self.expert_action_annotation_dir = os.path.join(expert_action_annotation_dir, self.bag_name.replace(".bag", ".json"))
-
+        print(f"[INFO] Expert action annotations path: {self.expert_action_annotation_dir}")
         with open(topics_path, 'r') as f:
             topics = json.load(f)
         
@@ -102,6 +102,7 @@ class TemporalAnnotator:
         self.keypoint_res = lookahead/num_keypoints
         self.v_mean = [1, 1, 1, 1, 1]
         self.max_duration = 2.4
+        self.L_max = 8.0
 
         print(f"[INFO] Using image topic: {self.image_topic}, control topic: {self.odom_topic}, robot width: {self.robot_width}")
  
@@ -137,6 +138,7 @@ class TemporalAnnotator:
         self.first_frame = True
         self.annotator_goal = None
         self.initial_choice = None
+        self.timed_exit = False
 
     def _get_timestamps_from_expert_annotations(self):
         timestamps = []
@@ -335,8 +337,8 @@ class TemporalAnnotator:
         return PathItem(path_points=path_points, left_boundary=left_b, right_boundary=right_b, polygon=poly_b)
 
     def compute_comparison_paths(self):
-
-        offset = np.random.uniform(self.robot_width/2, self.max_deviation)
+        max_offset = max(self.max_deviation * self.cum_dists[-1]/self.L_max, self.robot_width)
+        offset = np.random.uniform(self.robot_width/2, max_offset)
         if self.cum_dists[-1] == 0 or self.path is None or self.path.shape[0] < 2:
             return np.array([[0, 0, 0]]), np.array([[0, 0, 0]]), np.array([[0, 0, 0]]), np.array([[0, 0, 0]])
 
@@ -354,14 +356,21 @@ class TemporalAnnotator:
 
         # # print(conv_offsets)
         # left_conv_path, right_conv_path = make_offset_paths(self.path, self.yaws, conv_offsets)
-        annotator_goal = self.action_annotations.get("annotations_by_stamp", {}).get(str(self.frame_stamp), {}).get("goal_base", None)
 
-        if annotator_goal is None:
-            raise Exception
+        stop_flag = self.action_annotations.get("annotations_by_stamp", {}).get(str(self.frame_stamp), {}).get("stop", False)
 
-        self.annotator_goal = np.array([annotator_goal['x'], annotator_goal['y'], annotator_goal['z']])        
-        expert_path = make_offset_path_to_point(self.path, self.yaws, self.annotator_goal, self.cum_dists)
+        if not stop_flag:
+            annotator_goal = self.action_annotations.get("annotations_by_stamp", {}).get(str(self.frame_stamp), {}).get("goal_base", None)
 
+            if annotator_goal is None:
+                raise Exception
+
+            self.annotator_goal = np.array([annotator_goal['x'], annotator_goal['y'], annotator_goal['z']])
+
+            expert_path = make_offset_path_to_point(self.path, self.yaws, self.annotator_goal, self.cum_dists)
+        else:
+            print("HMm")
+            expert_path = np.zeros((10,3), dtype=np.float32)
 
         return left_offset_path, right_offset_path, expert_path
     
@@ -411,7 +420,7 @@ class TemporalAnnotator:
             t2 = self.frames[frame_pointer].stamp
             # print(distance)
             # print((t2 - t1).to_sec())
-            if arc_length > self.lookahead:
+            if arc_length > self.lookahead or (float((t2 - t1).to_sec()) > self.max_duration and self.timed_exit):
                 break
             elif arc_length > (keypoint_count+1)*self.keypoint_res:
                 keypoint_count+=1
